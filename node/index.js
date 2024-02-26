@@ -1,81 +1,45 @@
 const express = require("express");
-const axios = require("axios").default;
-const mysql = require("mysql");
+const random_name = require("node-random-name");
 
 const app = express();
-const PORT = 3000;
 
-const dbConfig = {
+const port = 3000;
+
+const config = {
   host: "db",
   user: "root",
-  password: "password",
+  password: "root",
   database: "nodedb",
 };
 
+const mysql = require("mysql");
+const connection = mysql.createConnection(config);
+
+const create_table =
+  "CREATE TABLE IF NOT EXISTS people (id int NOT NULL AUTO_INCREMENT PRIMARY KEY, name varchar(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+connection.query(create_table);
+
+const sql = `INSERT INTO people(name) values ('${random_name()}')`;
+connection.query(sql);
+
+const select = "SELECT name FROM people";
+let list = "";
+connection.query(select, (_err, result, _) => {
+  let i;
+  for (i = 0; i < result.length; i++) {
+    list += "<li>" + result[i].name + "</li>";
+  }
+});
+connection.end();
+
 app.get("/", (_req, res) => {
-  InsertName(res);
+  let html = "<h1>Full Cycle Rocks!</h1></br>";
+  html += "<ul>";
+  html += list;
+  html += "</ul>";
+  res.send(html);
 });
 
-app.listen(PORT, () => {
-  console.log(`Application running on Port...: ${PORT} 🚀`);
+app.listen(port, () => {
+  console.log("Rodando na porta " + port);
 });
-
-async function getName() {
-  const RANDOM = Math.floor(Math.random() * 10);
-  const response = await axios.get("https://swapi.dev/api/people");
-  return response.data.results[RANDOM].name;
-}
-
-async function InsertName(res) {
-  const name = await getName();
-  const connection = mysql.createConnection(dbConfig);
-  const INSERT_QUERY = `INSERT INTO people(name) values('${name}')`;
-
-  connection.query(INSERT_QUERY, (error, _results, _fields) => {
-    if (error) {
-      console.log(`Error inserting name: ${error}`);
-      res.status(500).send("Error inserting name");
-      return;
-    }
-
-    console.log(`${name} inserted successfully in the database!`);
-    getAll(res, connection);
-  });
-}
-
-function getAll(res, connection) {
-  const SELECT_QUERY = `SELECT id, name FROM people`;
-
-  connection.query(SELECT_QUERY, (error, results) => {
-    if (error) {
-      console.log(`Error getting people: ${error}`);
-      res.status(500).send("Error getting people");
-      return;
-    }
-
-    const tableRows = results
-      .map(
-        (person) => `
-        <tr>
-          <td>${person.id}</td>
-          <td>${person.name}</td>
-        </tr>
-      `
-      )
-      .join("");
-    const table = `
-      <table>
-        <tr>
-          <th>#</th>
-          <th>Name</th>
-        </tr>${tableRows}
-      </table>`;
-
-    res.send(`
-      <h1>Full Cycle Rocks!</h1>
-      ${table}
-    `);
-
-    connection.end();
-  });
-}

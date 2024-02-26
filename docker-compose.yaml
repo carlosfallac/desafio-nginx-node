@@ -1,47 +1,52 @@
 version: "3"
 
 services:
+  app:
+    build:
+      context: node
+    container_name: appnode
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s docker-entrypoint.sh
+    command: node index.js
+    networks:
+      - codeeducation
+    volumes:
+      - ./node:/usr/src/app
+      - ./usr/src/app/node_modules
+    tty: true
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    command: --innodb-use-native-aio=0
+    container_name: database
+    restart: always
+    tty: true
+    # volumes:
+    #   - ./mysql:/var/lib/mysql
+
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+
+    networks:
+      - codeeducation
+
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: nginx
+    tty: true
     ports:
       - "8080:80"
     depends_on:
       - app
-      - db
     networks:
-      - app-node-network
-
-  app:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
-    container_name: app
-    volumes:
-      - ./node:/usr/src/app
-    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s sh -c "npm install && npm run start"
-    tty: true
-    depends_on:
-      - db
-    networks:
-      - app-node-network
-
-  db:
-    image: mysql:5.7
-    command: --innodb-use-native-aio=0
-    container_name: db
-    restart: always
-    tty: true
-    volumes:
-      - ./node/.docker/mysql:/docker-entrypoint-initdb.d
-    environment:
-      - MYSQL_DATABASE=nodedb
-      - MYSQL_ROOT_PASSWORD=password
-    networks:
-      - app-node-network
+      - codeeducation
 
 networks:
-  app-node-network:
+  codeeducation:
     driver: bridge
